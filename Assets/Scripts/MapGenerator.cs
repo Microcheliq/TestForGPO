@@ -428,6 +428,8 @@ public class MapGenerator : MonoBehaviour
         textMesh.fontSize = 500; // Увеличиваем размер текста
         textMesh.color = Color.black;
         textMesh.alignment = TextAlignmentOptions.Center; // Центрируем текст
+        textMesh.horizontalMapping = TextureMappingOptions.Line;
+        textMesh.verticalMapping = TextureMappingOptions.MatchAspect;
 
         // Устанавливаем жирный шрифт
         textMesh.fontStyle = FontStyles.Bold;
