@@ -353,7 +353,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   position: {x: 0, y: 0}
-  objectPrefab: {fileID: 3099529155879124459, guid: 3a01ecf5733f2344aab07add55c5c1f4, type: 3}
+  objectPrefab: {fileID: 919132149155446097, guid: 21f04e28043946e4d9f5c7436abef331, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

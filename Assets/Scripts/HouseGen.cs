@@ -24,11 +24,13 @@ public class HouseGen : MonoBehaviour
     {
         Debug.Log($"GenerateHouse()");
 
-        float ran_x = Random.Range(-500f, 500f);
-        float ran_z = Random.Range(-500f, 500f);
+        float ran_x = Random.Range(-1000f, 1000f);
+        float ran_z = Random.Range(-1000f, 1000f);
 
-        objectPrefab.transform.localScale = new Vector3(100, 100, 100);
-        Quaternion rotation = Quaternion.Euler(-90, 90, 0);
+        float ran_rot = Random.Range(0f, 360f);
+
+        objectPrefab.transform.localScale = new Vector3(10, 10, 10);
+        Quaternion rotation = Quaternion.Euler(0, ran_rot, 0);
         GameObject obj = Instantiate(objectPrefab, new Vector3(ran_x, 0, ran_z), rotation);
 
         obj.name = "TestOBJ";

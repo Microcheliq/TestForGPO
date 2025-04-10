@@ -3,12 +3,14 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
 
-[CustomEditor(typeof(HouseGen))]
+[CustomEditor (typeof(HouseGen))]
 public class HouseGenEditor : Editor
 {
     public override void OnInspectorGUI()
     {
         HouseGen hGen = (HouseGen)target;
+
+        DrawDefaultInspector();
 
         if (GUILayout.Button("Generate"))
         {
