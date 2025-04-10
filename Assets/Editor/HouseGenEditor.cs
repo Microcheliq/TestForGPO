@@ -14,5 +14,10 @@ public class HouseGenEditor : Editor
         {
             hGen.GenerateHouse();
         }
+
+        if (GUILayout.Button("Clear"))
+        {
+            hGen.DeleteHouses();
+        }
     }
 }
