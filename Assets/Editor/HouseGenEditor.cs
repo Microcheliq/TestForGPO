@@ -12,9 +12,14 @@ public class HouseGenEditor : Editor
 
         DrawDefaultInspector();
 
-        if (GUILayout.Button("Generate"))
+        if (GUILayout.Button("Generate House"))
         {
             hGen.GenerateHouse();
+        }
+
+        if (GUILayout.Button("Generate Part"))
+        {
+            hGen.GeneratePart();
         }
 
         if (GUILayout.Button("Clear"))
