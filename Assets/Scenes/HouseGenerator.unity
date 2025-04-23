@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &624717145
+--- !u!1 &810154386
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,90 +127,53 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 624717148}
-  - component: {fileID: 624717147}
-  - component: {fileID: 624717146}
+  - component: {fileID: 810154388}
+  - component: {fileID: 810154387}
   m_Layer: 0
-  m_Name: Camera
-  m_TagString: MainCamera
+  m_Name: ModularBuildingGenerator
+  m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!81 &624717146
-AudioListener:
+--- !u!114 &810154387
+MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 624717145}
+  m_GameObject: {fileID: 810154386}
   m_Enabled: 1
---- !u!20 &624717147
-Camera:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 624717145}
-  m_Enabled: 1
-  serializedVersion: 2
-  m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
-  m_projectionMatrixMode: 1
-  m_GateFitMode: 2
-  m_FOVAxisMode: 0
-  m_Iso: 200
-  m_ShutterSpeed: 0.005
-  m_Aperture: 16
-  m_FocusDistance: 10
-  m_FocalLength: 50
-  m_BladeCount: 5
-  m_Curvature: {x: 2, y: 11}
-  m_BarrelClipping: 0.25
-  m_Anamorphism: 0
-  m_SensorSize: {x: 36, y: 24}
-  m_LensShift: {x: 0, y: 0}
-  m_NormalizedViewPortRect:
-    serializedVersion: 2
-    x: 0
-    y: 0
-    width: 1
-    height: 1
-  near clip plane: 0.3
-  far clip plane: 1000
-  field of view: 90.124886
-  orthographic: 0
-  orthographic size: 5
-  m_Depth: 0
-  m_CullingMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_RenderingPath: -1
-  m_TargetTexture: {fileID: 0}
-  m_TargetDisplay: 0
-  m_TargetEye: 3
-  m_HDR: 1
-  m_AllowMSAA: 1
-  m_AllowDynamicResolution: 0
-  m_ForceIntoRT: 0
-  m_OcclusionCulling: 1
-  m_StereoConvergence: 10
-  m_StereoSeparation: 0.022
---- !u!4 &624717148
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fd37120f02728fb4db50ae71b215466d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  minMaxSize: {x: 5, y: 15}
+  foundationPrefab: {fileID: 919132149155446097, guid: 45e94453e427ce2429a8ad36fc16e267, type: 3}
+  wallPrefab: {fileID: 794739558183868917, guid: 59b60113e7809b348856c5f896f391ce, type: 3}
+  windowWallPrefab: {fileID: 7251327134584261317, guid: 79ed376eb71296342aa404aa18a9ce99, type: 3}
+  doorWallPrefab: {fileID: 919132149155446097, guid: 89921bd6439ca9641b2df2899e3e0181, type: 3}
+  wallHeight: 2
+  roofPrefabs:
+  - {fileID: 919132149155446097, guid: 7b16062c161c27a4ba0273898967d4e4, type: 3}
+  minFloors: 1
+  maxFloors: 4
+  windowChance: 0.3
+--- !u!4 &810154388
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 624717145}
+  m_GameObject: {fileID: 810154386}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: -19.121841, y: 899, z: 79}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1028574897
 GameObject:
   m_ObjectHideFlags: 0
@@ -302,7 +265,7 @@ Transform:
   m_GameObject: {fileID: 1028574897}
   serializedVersion: 2
   m_LocalRotation: {x: 0.40821788, y: -0.23456968, z: 0.10938163, w: 0.8754261}
-  m_LocalPosition: {x: 0, y: 3, z: 0}
+  m_LocalPosition: {x: 0, y: 5, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -319,7 +282,7 @@ GameObject:
   - component: {fileID: 1843853341}
   - component: {fileID: 1843853342}
   m_Layer: 0
-  m_Name: GameObject
+  m_Name: HouseGen
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -349,15 +312,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 1843853340}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 10d11cd2b61cf1b4c9090d39b941b873, type: 3}
+  m_Script: {fileID: 11500000, guid: 92b8e5a13a0fb1f4f9657c3fe1b74501, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   position: {x: 0, y: 0}
-  objectPrefab: {fileID: 919132149155446097, guid: 21f04e28043946e4d9f5c7436abef331, type: 3}
+  objectPrefab: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 624717148}
   - {fileID: 1028574899}
   - {fileID: 1843853341}
+  - {fileID: 810154388}
