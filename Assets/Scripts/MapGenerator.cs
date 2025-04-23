@@ -1,164 +1,131 @@
-using System.Collections;
 using System.Collections.Generic;
 using TMPro;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public class MapGenerator : MonoBehaviour
 {
-    public enum DrawMode { NoiseMap, ColourMap };
+    public enum DrawMode { NoiseMap, ColourMap }
     public DrawMode drawMode;
 
-    [Range(50, 300)]
-    public int mapWidth;
-    [Range(50, 300)]
-    public int mapHeight;
+    [Header("Noise Settings")]
+    [Range(50, 300)] public int mapWidth;
+    [Range(50, 300)] public int mapHeight;
     public float noiseScale;
     public int octaves;
-    [Range(0, 1)]
-    public float persistance;
-    [Range(1, 10)]
-    public float lacunarity;
-    public bool autoUpdate;
-    public TerrainType[] regions;
+    [Range(0, 1)] public float persistance;
+    [Range(1, 10)] public float lacunarity;
     public int seed;
     public Vector2 offset;
-
-    [Range(0, 1)]
-    public float objectHeightThresholdMin;
-    [Range(0, 1)]
-    public float objectHeightThresholdMax;
-    [Range(0, 1)]
-    public float objectSpawnChance;
-    public float minDistanceBetweenObjects = 5f;
-
-    // Новое свойство: если true – смещение для биомного шума будет случайным, что даёт разные биомы при каждом запуске.
     public bool randomizeBiomeNoise = true;
 
-    private List<Vector2> objectPositions = new List<Vector2>();
-    private float[,] noiseMap;
+    [Header("Auto Update")]
+    public bool autoUpdate = false;
+
+    [Header("Placement Settings")]
+    public int chunkSize = 10;
+    public int placementIterations = 5000;
+    public List<LocationData> locations;
+
+    [Header("Rendering")]
     public GameObject objectPrefab;
 
+    [Header("Randomization")]
+    public int randomLocationCount = 10;
+    public int minRoadsPerLocation = 1;
+    public int maxRoadsPerLocation = 3;
+    public float minRoadDistance = 5f;
+    public float maxRoadDistance = 40f;
+
+    private float[,] noiseMap;
     private Color[] colourMap;
-    private const float maxRoadDistance = 50f; // Максимальное расстояние для создания дороги
+
+    private void Start()
+    {
+        RandomizeLocations();
+        GenerateMap();
+    }
 
     public void GenerateMap()
     {
         DeletePreviousObjects();
 
-        // Генерация основного шума высот
         noiseMap = Noise.GenerateNoiseMap(mapWidth, mapHeight, seed, noiseScale, octaves, persistance, lacunarity, offset);
-        Debug.Log($"NoiseMap generated. Size: {noiseMap.GetLength(0)}x{noiseMap.GetLength(1)}");
-
-        // Генерация дополнительного шума для биомов через компонент BiomeGenerator
         BiomeGenerator biomeGen = FindObjectOfType<BiomeGenerator>();
-        if (biomeGen == null)
-        {
-            Debug.LogError("BiomeGenerator не найден в сцене!");
-            return;
-        }
-        // Если включена случайность, обновляем смещение для биомного шума
+        if (biomeGen == null) { Debug.LogError("BiomeGenerator не найден!"); return; }
         if (randomizeBiomeNoise)
-        {
             biomeGen.offset = new Vector2(Random.Range(-10000f, 10000f), Random.Range(-10000f, 10000f));
-        }
-        float[,] biomeNoiseMap = biomeGen.GenerateBiomeNoiseMap(mapWidth, mapHeight);
+        float[,] biomeNoise = biomeGen.GenerateBiomeNoiseMap(mapWidth, mapHeight);
 
-        colourMap = new Color[mapHeight * mapWidth];
-        for (int y = 0; y < mapHeight; y++)
-        {
-            for (int x = 0; x < mapWidth; x++)
-            {
-                float currentHeight = noiseMap[x, y];
-                float currentBiomeNoise = biomeNoiseMap[x, y];
-                // Вычисляем биом с учётом высоты и дополнительного шума
-                string biome = GetBiome(currentHeight, currentBiomeNoise);
+        string[,] biomeMap = new string[mapWidth, mapHeight];
+        for (int x = 0; x < mapWidth; x++)
+            for (int y = 0; y < mapHeight; y++)
+                biomeMap[x, y] = GetBiome(noiseMap[x, y], biomeNoise[x, y]);
 
-                if (currentHeight >= objectHeightThresholdMin && currentHeight <= objectHeightThresholdMax && Random.value < objectSpawnChance)
-                {
-                    Vector2 newObjectPosition = new Vector2(x, y);
+        colourMap = new Color[mapWidth * mapHeight];
+        for (int x = 0; x < mapWidth; x++)
+            for (int y = 0; y < mapHeight; y++)
+                colourMap[y * mapWidth + x] = GetColorForBiome(biomeMap[x, y]);
 
-                    if (IsFarEnoughFromOtherObjects(newObjectPosition))
-                    {
-                        // Передаём вычисленный биом в метод создания объекта
-                        CreateObject(newObjectPosition, currentHeight, biome);
-                        colourMap[y * mapWidth + x] = Color.black;
-                        objectPositions.Add(newObjectPosition);
-
-                        /* Debug.Log($"Object created at position: {newObjectPosition}"); */
-                    }
-                    else
-                    {
-                        // Вместо старой ApplyRegionColour используем новый метод для цвета по биому
-                        colourMap[y * mapWidth + x] = GetColorForBiome(biome);
-                    }
-                }
-                else
-                {
-                    // Применяем цвет с учётом вычисленного биома
-                    colourMap[y * mapWidth + x] = GetColorForBiome(biome);
-                }
-            }
-        }
-        Debug.Log($"First color in ColourMap: {colourMap[0]}");
         MapDisplay display = FindObjectOfType<MapDisplay>();
         if (drawMode == DrawMode.NoiseMap)
-        {
-            Debug.Log("Drawing NoiseMap...");
             display.DrawTexture(TextureGenerator.TextureFromHeightMap(noiseMap));
-        }
-        else if (drawMode == DrawMode.ColourMap)
-        {
-            Debug.Log("Drawing ColourMap...");
-            display.DrawTexture(TextureGenerator.TextureFromColourMap(colourMap, mapWidth, mapHeight));
-        }
-
-        DrawRoadBetweenClosestObjects();
-
-        objectPositions.Clear();
-    }
-
-    // Новый метод для определения биома по высоте и дополнительному шуму
-    private string GetBiome(float height, float biomeNoise)
-    {
-        if (height <= 0.4f)
-        {
-            // Для низких высот можно варьировать тип воды или болота
-            return (biomeNoise < 0.5f) ? "Water" : "Deep Water";
-        }
-        else if (height <= 0.44f)
-        {
-            return "Sand";
-        }
-        else if (height <= 0.6f)
-        {
-            // Используем биомный шум для выбора между лугом и лесом
-            return (biomeNoise < 0.5f) ? "Grassland" : "Forest";
-        }
-        else if (height <= 0.69f)
-        {
-            // Дополнительное разделение для леса или, например, джунглей
-            return (biomeNoise < 0.5f) ? "Forest" : "Jungle";
-        }
-        else if (height <= 0.8f)
-        {
-            return "MountainBase";
-        }
-        else if (height <= 0.85f)
-        {
-            return "MountainMid";
-        }
-        else if (height <= 0.9f)
-        {
-            return "MountainHigh";
-        }
         else
+            display.DrawTexture(TextureGenerator.TextureFromColourMap(colourMap, mapWidth, mapHeight));
+
+        var placed = PlacementOptimizer.Optimize(locations, biomeMap, chunkSize, placementIterations);
+
+        foreach (var loc in placed)
         {
-            return "MountainPeak";
+            CreateObjectAtChunk(loc.AssignedChunk, loc.Id);
+            foreach (var kv in loc.DesiredRoads)
+                DrawRoad(loc.AssignedChunk.center, kv.Key.AssignedChunk.center);
         }
     }
 
-    // Новый метод для получения цвета для вычисленного биома
+    private void RandomizeLocations()
+    {
+        string[] biomeNames = new string[] {
+            "Grassland", "Forest", "Jungle", "Sand", "MountainBase", "MountainMid", "MountainHigh", "MountainPeak"
+        };
+
+        locations = new List<LocationData>();
+        for (int i = 0; i < randomLocationCount; i++)
+        {
+            var loc = new LocationData
+            {
+                Id = $"Loc{i + 1}",
+                Biome = biomeNames[Random.Range(0, biomeNames.Length)]
+            };
+            locations.Add(loc);
+        }
+
+        foreach (var loc in locations)
+        {
+            int roadCount = Random.Range(minRoadsPerLocation, maxRoadsPerLocation + 1);
+            for (int i = 0; i < roadCount; i++)
+            {
+                var target = locations[Random.Range(0, locations.Count)];
+                if (target == loc || loc.Roads.Exists(r => r.target == target)) continue;
+                float distance = Random.Range(minRoadDistance, maxRoadDistance);
+                loc.Roads.Add(new RoadConnection { target = target, distance = distance });
+            }
+        }
+
+        Debug.Log($"[Randomize] {locations.Count} locations and random roads created.");
+    }
+
+    private string GetBiome(float h, float n)
+    {
+        if (h <= 0.4f) return n < 0.5f ? "Water" : "Deep Water";
+        if (h <= 0.44f) return "Sand";
+        if (h <= 0.6f) return n < 0.5f ? "Grassland" : "Forest";
+        if (h <= 0.69f) return n < 0.5f ? "Forest" : "Jungle";
+        if (h <= 0.8f) return "MountainBase";
+        if (h <= 0.85f) return "MountainMid";
+        if (h <= 0.9f) return "MountainHigh";
+        return "MountainPeak";
+    }
+
     private Color GetColorForBiome(string biome)
     {
         switch (biome)
@@ -177,305 +144,114 @@ public class MapGenerator : MonoBehaviour
         }
     }
 
-    private void DrawRoadBetweenClosestObjects()
+    private void CreateObjectAtChunk(ChunkManager.Chunk chunk, string id)
     {
-        if (objectPositions.Count < 2) return;
-
-        HashSet<(Vector2, Vector2)> connectedPairs = new HashSet<(Vector2, Vector2)>();
-
-        for (int i = 0; i < objectPositions.Count; i++)
-        {
-            Vector2 closestObject = Vector2.zero;
-            float closestDistance = float.MaxValue;
-
-            for (int j = 0; j < objectPositions.Count; j++)
-            {
-                if (i != j)
-                {
-                    float distance = Vector2.Distance(objectPositions[i], objectPositions[j]);
-
-                    if (distance <= maxRoadDistance && distance < closestDistance)
-                    {
-                        closestDistance = distance;
-                        closestObject = objectPositions[j];
-                    }
-                }
-            }
-
-            if (closestDistance <= maxRoadDistance && closestObject != Vector2.zero)
-            {
-                var pair = (objectPositions[i], closestObject);
-                var reversePair = (closestObject, objectPositions[i]);
-
-                if (!connectedPairs.Contains(pair) && !connectedPairs.Contains(reversePair))
-                {
-                    /* Debug.Log($"Drawing road between {objectPositions[i]} and {closestObject}, Distance: {closestDistance}"); */
-                    DrawRoad(objectPositions[i], closestObject);
-                    connectedPairs.Add(pair);
-                }
-            }
-        }
+        float xOffset = mapWidth / 2f, yOffset = mapHeight / 2f, scale = 10f, hOff = 5f;
+        Vector3 pos = new Vector3(
+            (-(chunk.center.x - xOffset) * scale - 5),
+            hOff,
+            (-(chunk.center.y - yOffset) * scale - 5)
+        );
+        var obj = Instantiate(objectPrefab, pos, Quaternion.Euler(-90, 90, 0));
+        obj.name = id;
+        obj.tag = "GeneratedObject";
+        obj.AddComponent<BoxCollider>().isTrigger = true;
+        CreateNameLabel(obj, id);
     }
 
     private void DrawRoad(Vector2 start, Vector2 end)
     {
         List<Vector2> path = FindPath(start, end);
-
-        foreach (Vector2 point in path)
+        foreach (var p in path)
         {
-            int x = Mathf.RoundToInt(point.x);
-            int y = Mathf.RoundToInt(point.y);
-
+            int x = Mathf.RoundToInt(p.x), y = Mathf.RoundToInt(p.y);
             if (x >= 0 && x < mapWidth && y >= 0 && y < mapHeight)
-            {
                 colourMap[y * mapWidth + x] = Color.red;
-            }
         }
-
-        MapDisplay display = FindObjectOfType<MapDisplay>();
-        display.DrawTexture(TextureGenerator.TextureFromColourMap(colourMap, mapWidth, mapHeight));
+        FindObjectOfType<MapDisplay>().DrawTexture(TextureGenerator.TextureFromColourMap(colourMap, mapWidth, mapHeight));
     }
 
     private List<Vector2> FindPath(Vector2 start, Vector2 end)
     {
-        List<Vector2> openSet = new List<Vector2> { start };
-        Dictionary<Vector2, Vector2> cameFrom = new Dictionary<Vector2, Vector2>();
-
-        Dictionary<Vector2, float> gScore = new Dictionary<Vector2, float>();
-        gScore[start] = 0;
-
-        Dictionary<Vector2, float> fScore = new Dictionary<Vector2, float>();
-        fScore[start] = Vector2.Distance(start, end);
+        var openSet = new List<Vector2> { start };
+        var cameFrom = new Dictionary<Vector2, Vector2>();
+        var gScore = new Dictionary<Vector2, float> { [start] = 0f };
+        var fScore = new Dictionary<Vector2, float> { [start] = Vector2.Distance(start, end) };
 
         while (openSet.Count > 0)
         {
             Vector2 current = openSet[0];
-            foreach (Vector2 node in openSet)
-            {
-                if (fScore.ContainsKey(node) && fScore[node] < fScore[current])
-                {
-                    current = node;
-                }
-            }
+            foreach (var n in openSet)
+                if (fScore.ContainsKey(n) && fScore[n] < fScore[current]) current = n;
 
-            if (current == end)
-            {
-                List<Vector2> path = new List<Vector2>();
-                while (cameFrom.ContainsKey(current))
-                {
-                    path.Add(current);
-                    current = cameFrom[current];
-                }
-                path.Reverse();
-                return path;
-            }
+            if (current == end) break;
 
             openSet.Remove(current);
-
-            foreach (Vector2 neighbor in GetNeighbors(current))
+            foreach (var neigh in GetNeighbors(current))
             {
-                float terrainCost = GetTerrainCost(neighbor);
-                if (terrainCost == float.MaxValue) continue;
-
-                float tentativeGScore = gScore[current] + Vector2.Distance(current, neighbor) * terrainCost;
-
-                if (!gScore.ContainsKey(neighbor) || tentativeGScore < gScore[neighbor])
+                float cost = GetTerrainCost(neigh);
+                if (cost == float.MaxValue) continue;
+                float tg = gScore[current] + Vector2.Distance(current, neigh) * cost;
+                if (!gScore.ContainsKey(neigh) || tg < gScore[neigh])
                 {
-                    cameFrom[neighbor] = current;
-                    gScore[neighbor] = tentativeGScore;
-                    fScore[neighbor] = tentativeGScore + Vector2.Distance(neighbor, end);
-
-                    if (!openSet.Contains(neighbor))
-                    {
-                        openSet.Add(neighbor);
-                    }
+                    cameFrom[neigh] = current;
+                    gScore[neigh] = tg;
+                    fScore[neigh] = tg + Vector2.Distance(neigh, end);
+                    if (!openSet.Contains(neigh)) openSet.Add(neigh);
                 }
             }
         }
 
-        return new List<Vector2>();
+        var path = new List<Vector2>();
+        Vector2 cur = end;
+        while (cameFrom.ContainsKey(cur))
+        {
+            path.Add(cur);
+            cur = cameFrom[cur];
+        }
+        path.Reverse();
+        return path;
     }
 
-    private List<Vector2> GetNeighbors(Vector2 cell)
+    private IEnumerable<Vector2> GetNeighbors(Vector2 cell)
     {
-        List<Vector2> neighbors = new List<Vector2>();
-
-        int x = Mathf.RoundToInt(cell.x);
-        int y = Mathf.RoundToInt(cell.y);
-
-        Vector2[] directions = new Vector2[]
+        int x = Mathf.RoundToInt(cell.x), y = Mathf.RoundToInt(cell.y);
+        Vector2[] dirs = { Vector2.left, Vector2.right, Vector2.up, Vector2.down };
+        foreach (var d in dirs)
         {
-            new Vector2(-1, 0),
-            new Vector2(1, 0),
-            new Vector2(0, -1),
-            new Vector2(0, 1),
-        };
-
-        foreach (var dir in directions)
-        {
-            int neighborX = x + (int)dir.x;
-            int neighborY = y + (int)dir.y;
-
-            if (neighborX >= 0 && neighborX < mapWidth && neighborY >= 0 && neighborY < mapHeight)
-            {
-                float height = noiseMap[neighborX, neighborY];
-
-                if (height < 0.41f || height > 0.79f)
-                    continue;
-
-                neighbors.Add(new Vector2(neighborX, neighborY));
-            }
+            int nx = x + (int)d.x, ny = y + (int)d.y;
+            if (nx < 0 || nx >= mapWidth || ny < 0 || ny >= mapHeight) continue;
+            float h = noiseMap[nx, ny];
+            if (h < 0.41f || h > 0.79f) continue;
+            yield return new Vector2(nx, ny);
         }
-
-        return neighbors;
     }
 
-    private float GetTerrainCost(Vector2 position)
+    private float GetTerrainCost(Vector2 pos)
     {
-        float height = noiseMap[Mathf.RoundToInt(position.x), Mathf.RoundToInt(position.y)];
-
-        if (height < 0.41f || height > 0.79f)
-            return float.MaxValue;
-        else if (height > 0.6f)
-            return 2f;
-        else
-            return 1f;
-    }
-
-    // Обновленный метод CreateObject – теперь принимает вычисленный биом
-    private void CreateObject(Vector2 position, float height, string biome)
-    {
-        string objectName;
-
-        // Если биом горный, создаём пещеры или интересные места
-        if (biome == "MountainBase" || biome == "MountainMid" || biome == "MountainHigh" || biome == "MountainPeak")
-        {
-            objectName = (Random.value < 0.5f) ? "Cave" : "Interest Place";
-        }
-        else
-        {
-            // Для остальных биомов создаём города или точки интереса
-            switch (biome)
-            {
-                case "Water":
-                case "Deep Water":
-                    return; // Не создаём объекты на воде
-                case "Sand":
-                    objectName = "Port";
-                    break;
-                case "Grassland":
-                    objectName = "Plains City";
-                    break;
-                case "Forest":
-                case "Jungle":
-                    objectName = "Forest City";
-                    break;
-                default:
-                    return; // На неизвестных биомах объекты не создаются
-            }
-        }
-
-        float xOffset = mapWidth / 2f;
-        float yOffset = mapHeight / 2f;
-        float scale = 10f;
-        float heightOffset = 5f;
-
-        Quaternion rotation = Quaternion.Euler(-90, 90, 0);
-        GameObject obj = Instantiate(objectPrefab,
-            new Vector3(
-                (-(position.x - xOffset) * scale - 5),
-                heightOffset,
-                (-(position.y - yOffset) * scale - 5)
-            ),
-            rotation);
-
-        obj.name = objectName;
-        obj.tag = "GeneratedObject";
-
-        BoxCollider collider = obj.AddComponent<BoxCollider>();
-        collider.isTrigger = true;
-
-        CreateNameLabel(obj, objectName);
+        float h = noiseMap[Mathf.RoundToInt(pos.x), Mathf.RoundToInt(pos.y)];
+        if (h < 0.41f || h > 0.79f) return float.MaxValue;
+        return h > 0.6f ? 2f : 1f;
     }
 
     private void DeletePreviousObjects()
     {
-        GameObject[] previousObjects = GameObject.FindGameObjectsWithTag("GeneratedObject");
-
-        Debug.Log($"Deleting {previousObjects.Length} objects");
-
-        foreach (GameObject obj in previousObjects)
-        {
-            if (Application.isEditor)
-            {
-                DestroyImmediate(obj);
-            }
-            else
-            {
-                Destroy(obj);
-            }
-        }
+        foreach (var o in GameObject.FindGameObjectsWithTag("GeneratedObject"))
+            if (Application.isEditor) DestroyImmediate(o); else Destroy(o);
     }
 
-    private void CreateNameLabel(GameObject parentObject, string objectName)
+    private void CreateNameLabel(GameObject parent, string text)
     {
-        GameObject textObject = new GameObject("NameLabel");
-        textObject.transform.SetParent(parentObject.transform);
-
-        // Добавляем TextMeshPro компонент
-        TextMeshPro textMesh = textObject.AddComponent<TextMeshPro>();
-        textMesh.text = objectName; // Устанавливаем имя объекта в лейбле
-        textMesh.fontSize = 500; // Увеличиваем размер текста
-        textMesh.color = Color.black;
-        textMesh.alignment = TextAlignmentOptions.Center; // Центрируем текст
-        textMesh.horizontalMapping = TextureMappingOptions.Line;
-        textMesh.verticalMapping = TextureMappingOptions.MatchAspect;
-
-        // Устанавливаем жирный шрифт
-        textMesh.fontStyle = FontStyles.Bold;
-
-        // Позиционируем текст над объектом
-        textObject.transform.localPosition = new Vector3(-2f, 0, 2f); // Над объектом на высоте 2
-        textObject.transform.localRotation = Quaternion.Euler(180, 0, 90); // Поворот текста на 90 градусов по X
-
-        // Устанавливаем размер текстового поля, чтобы оно было достаточно широким
-        RectTransform rectTransform = textObject.GetComponent<RectTransform>();
-        rectTransform.sizeDelta = new Vector2(500, 20); // Увеличиваем ширину текста
+        var go = new GameObject("NameLabel");
+        go.transform.SetParent(parent.transform);
+        var tm = go.AddComponent<TextMeshPro>();
+        tm.text = text;
+        tm.fontSize = 500;
+        tm.color = Color.black;
+        tm.alignment = TextAlignmentOptions.Center;
+        tm.fontStyle = FontStyles.Bold;
+        go.transform.localPosition = new Vector3(-2f, 0, 2f);
+        go.transform.localRotation = Quaternion.Euler(180, 0, 90);
+        go.GetComponent<RectTransform>().sizeDelta = new Vector2(500, 20);
     }
-
-    private void OnValidate()
-    {
-        if (Application.isPlaying)
-        {
-            Debug.LogWarning("OnValidate is being called during play mode. Skipping execution.");
-            return;
-        }
-
-        mapWidth = Mathf.Max(1, mapWidth);
-        mapHeight = Mathf.Max(1, mapHeight);
-        lacunarity = Mathf.Max(1, lacunarity);
-        octaves = Mathf.Max(1, octaves);
-    }
-
-    private bool IsFarEnoughFromOtherObjects(Vector2 newPosition)
-    {
-        foreach (Vector2 pos in objectPositions)
-        {
-            if (Vector2.Distance(pos, newPosition) < minDistanceBetweenObjects)
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    // Старая версия GetBiome удалена – используется новая версия с двумя параметрами
-}
-
-[System.Serializable]
-public struct TerrainType
-{
-    public string name;
-    public float height;
-    public Color colour;
 }
