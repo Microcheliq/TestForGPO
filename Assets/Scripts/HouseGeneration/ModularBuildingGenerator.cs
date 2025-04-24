@@ -4,69 +4,95 @@ using UnityEngine.UIElements;
 
 public class ModularBuildingGenerator : MonoBehaviour
 {
+
+    const float WALL_LENGTH = 2f;    // Длина стены (ось Z)
+    const float WALL_HEIGHT = 2f;    // Высота стены (ось Y)
+    const float WALL_THICKNESS = 0.5f; // Ширина стены (ось X)
+
+
     [Header("Foundation Settings")]
-    public Vector2 minMaxSize = new Vector2(5, 15);
-    public GameObject foundationPrefab;
+    public Vector2 minMaxSize = new Vector2(2, 11);
+    public GameObject floorPrefab;
 
     [Header("Wall Modules")]
     public GameObject wallPrefab;
-    public GameObject windowWallPrefab;
-    public GameObject doorWallPrefab;
-    public float wallHeight = 2f;
+    public GameObject windowPrefab;
+    public GameObject doorPrefab;
 
     [Header("Roof Modules")]
-    public GameObject[] roofPrefabs;
+    public GameObject roofPrefab;
 
     [Header("Generation Settings")]
     [Range(1, 5)] public int minFloors = 1;
-    [Range(1, 5)] public int maxFloors = 1;
-    [Range(0, 1)] public float windowChance = 0.3f;
+    [Range(1, 5)] public int maxFloors = 2;
 
     private Vector3 buildingSize;
     private int floorsCount;
+
+    private float doorChance = 0.2f;
+    private float wallHeight = 2f;
+    private float windowChance = 0.3f;
+
     private Transform currentBuilding;
 
-    [ContextMenu("Generate Building Now!")]
+    private GameObject northWallGroup;
+    private GameObject southWallGroup;
+    private GameObject westWallGroup;
+    private GameObject eastWallGroup;
+
     public void GenerateBuilding()
     {
-        if (currentBuilding != null) Destroy(currentBuilding.gameObject);
+        if (currentBuilding != null)
+        {
+            DestroyImmediate(currentBuilding.gameObject);
+        }
 
         // Создаем контейнер для здания
-        currentBuilding = new GameObject("Generated Building").transform;
+        CreateGroups();
 
         // Генерируем параметры
         floorsCount = Random.Range(minFloors, maxFloors + 1);
         buildingSize = new Vector3(
-            Random.Range(minMaxSize.x, minMaxSize.y),
+            (int)(Random.Range(minMaxSize.x, minMaxSize.y)),
             0,
-            Random.Range(minMaxSize.x, minMaxSize.y)
+            (int)(Random.Range(minMaxSize.x, minMaxSize.y))
         );
 
-        // Строим фундамент
         CreateFoundation();
-
-        // Строим этажи
-        for (int floor = 0; floor < floorsCount; floor++)
-        {
-            CreateFloor(floor);
-        }
-
-        // Добавляем крышу
+        CreateFloors();
         CreateRoof();
+    }
+
+    void CreateGroups()
+    {
+        currentBuilding = new GameObject("Generated Building").transform;
+
+        northWallGroup = new GameObject("North Wall");
+        southWallGroup = new GameObject("South Wall");
+        westWallGroup = new GameObject("West Wall");
+        eastWallGroup = new GameObject("East Wall");
+
+        northWallGroup.transform.SetParent(currentBuilding);
+        southWallGroup.transform.SetParent(currentBuilding);
+        westWallGroup.transform.SetParent(currentBuilding);
+        eastWallGroup.transform.SetParent(currentBuilding);
     }
 
     void CreateFoundation()
     {
+        GameObject foundationGroup = new GameObject("Foundation");
+        foundationGroup.transform.SetParent(currentBuilding);
+
         var foundation = Instantiate(
-            foundationPrefab,
+            floorPrefab,
             Vector3.zero,
             Quaternion.identity,
-            currentBuilding
+            foundationGroup.transform
         );
 
         foundation.transform.localScale = new Vector3(
             buildingSize.x,
-            0.2f,
+            0.4f,
             buildingSize.z
         );
     }
@@ -75,58 +101,111 @@ public class ModularBuildingGenerator : MonoBehaviour
     {
         float yPos = floorNumber * wallHeight + 0.2f;
 
+        GameObject floorGroup = new GameObject($"Floor_{floorNumber}");
+        floorGroup.transform.SetParent(currentBuilding);
+
         // Генерация стен по периметру
-        CreateWallRing(new Vector3(0, yPos, 0), buildingSize);
+        CreateWallRing(new Vector3(0, yPos, 0), buildingSize, floorNumber);
     }
 
-    void CreateWallRing(Vector3 position, Vector3 size)
+    void CreateFloors()
     {
-        // Рассчитываем позиции для стен
-        float halfX = size.x;
-        float halfZ = size.z;
-
-        // Создаем стены для каждой стороны
-        CreateWallSegment(new Vector3(-halfX, position.y, 0), 90, size.z);  // Западная
-        //CreateWallSegment(new Vector3(halfX, position.y, 0), -90, size.z);   // Восточная
-        //CreateWallSegment(new Vector3(0, position.y, -halfZ), 0, size.x);   // Северная
-        //CreateWallSegment(new Vector3(0, position.y, halfZ), 180, size.x);   // Южная
-    }
-
-    void CreateWallSegment(Vector3 position, float rotation, float length)
-    {
-        int wallsCount = Mathf.CeilToInt(length);
-
-        for (int i = 0; i < wallsCount; i++)
+        for (int floor = 0; floor < floorsCount; floor++)
         {
-            GameObject wall = Instantiate(
-                wallPrefab,
-                position + new Vector3(0, 0, i - length),
-                Quaternion.Euler(0, rotation, 0),
-                currentBuilding
-            );
-
-            //// Для дверей - проверяем первый этаж и земной уровень
-            //if (floorNumber == 0 && Random.value < 0.2f)
-            //{
-            //    ReplaceWithDoor(wall);
-            //}
+            CreateFloor(floor);
         }
     }
 
-    void ReplaceWithDoor(GameObject wallSegment)
+    void CreateWallRing(Vector3 position, Vector3 size, int floorNumber)
     {
-        Destroy(wallSegment);
-        Instantiate(
-            doorWallPrefab,
-            wallSegment.transform.position,
-            wallSegment.transform.rotation,
-            currentBuilding
-        );
+        // Рассчитываем позиции для стен
+        float halfX = (buildingSize.x + WALL_THICKNESS * 2) * 0.5f;
+        float halfZ = (buildingSize.y + WALL_THICKNESS * 2) * 0.5f;
+
+        // Создаем стены для каждой стороны
+        CreateWallSegment(new Vector3(-buildingSize.x * 2, position.y, -buildingSize.z * 2), 180, size.x, floorNumber, northWallGroup.transform);   // Северная
+        CreateWallSegment(new Vector3(-buildingSize.x / 2, position.y, -buildingSize.z / 2), 0, size.x, floorNumber, southWallGroup.transform);   // Южная
+        CreateWallSegment(new Vector3(-halfX, position.y, 0), 90, size.z, floorNumber, westWallGroup.transform);  // Западная
+        CreateWallSegment(new Vector3(halfX, position.y, 0), -90, size.z, floorNumber, eastWallGroup.transform);   // Восточная
+    }
+
+    void CreateWallSegment(Vector3 position, float rotation, float length, int floorNumber, Transform group)
+    {
+        int wallsCount = Mathf.CeilToInt(length);
+        bool doorSpawned = false;
+
+        if (Mathf.Abs(rotation) == 90)
+        {
+            for (int i = 0; i < wallsCount; i++)
+            {
+                GameObject prefabOfWallDoorWindow;
+                float rand = Random.value;
+
+                if (floorNumber == 0 && !doorSpawned && rand < doorChance)
+                {
+                    prefabOfWallDoorWindow = doorPrefab;
+                    doorSpawned = true;
+                }
+                else if (rand < windowChance)
+                {
+                    prefabOfWallDoorWindow = windowPrefab;
+                }
+                else // Выбор между стеной с окном и без
+                {
+                    prefabOfWallDoorWindow = wallPrefab;
+                }
+
+                Vector3 wallPosition = position + new Vector3(0, 0, (i * 2) - length / 2);
+
+                Debug.Log($"{group.name} | CNT: {wallsCount} | I: {i}\n WallPos: {wallPosition} | Pos: {position}");
+
+                GameObject wall = Instantiate(
+                    prefabOfWallDoorWindow,
+                    wallPosition,
+                    Quaternion.Euler(0, rotation, 0),
+                    group
+                );
+            }
+        }
+        else
+        {
+            for (int i = 0; i < wallsCount; i++)
+            {
+                GameObject prefabOfWallDoorWindow;
+                float rand = Random.value;
+
+                if (floorNumber == 0 && !doorSpawned && rand < doorChance)
+                {
+                    prefabOfWallDoorWindow = doorPrefab;
+                    doorSpawned = true;
+                }
+                else if (rand < windowChance)
+                {
+                    prefabOfWallDoorWindow = windowPrefab;
+                }
+                else // Выбор между стеной с окном и без
+                {
+                    prefabOfWallDoorWindow = wallPrefab;
+                }
+
+                Vector3 wallPosition = position + new Vector3((i * 2), 0, 0);
+
+                Debug.Log($"{group.name} | CNT: {wallsCount} | I: {i}\n WallPos: {wallPosition} | Pos: {position}");
+
+                GameObject wall = Instantiate(
+                    prefabOfWallDoorWindow,
+                    wallPosition,
+                    Quaternion.Euler(0, rotation, 0),
+                    group
+                );
+            }
+        }
     }
 
     void CreateRoof()
     {
-        if (roofPrefabs.Length == 0) return;
+        GameObject roofGroup = new GameObject("Roof");
+        roofGroup.transform.SetParent(currentBuilding);
 
         Vector3 roofPosition = new Vector3(
             0,
@@ -135,10 +214,10 @@ public class ModularBuildingGenerator : MonoBehaviour
         );
 
         GameObject roof = Instantiate(
-            roofPrefabs[Random.Range(0, roofPrefabs.Length)],
+            roofPrefab,
             roofPosition,
             Quaternion.identity,
-            currentBuilding
+            roofGroup.transform
         );
 
         // Подгоняем размер крыши под здание
@@ -149,10 +228,11 @@ public class ModularBuildingGenerator : MonoBehaviour
         );
     }
 
-    [ContextMenu("Destroy Building")]
     public void DestroyBuilding()
     {
         if (currentBuilding != null)
+        {
             DestroyImmediate(currentBuilding.gameObject);
+        }
     }
 }
