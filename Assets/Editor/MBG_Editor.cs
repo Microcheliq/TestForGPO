@@ -18,6 +18,11 @@ public class MBG_Editor : Editor
             MBG_Gen.GenerateBuilding();
         }
 
+        if (GUILayout.Button("TestGenerate Building", GUILayout.Height(30)))
+        {
+            MBG_Gen.TestGenerateBuilding();
+        }
+
         if (GUILayout.Button("Clear"))
         {
             MBG_Gen.DestroyBuilding();
