@@ -2,6 +2,9 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro; // Обязательно для TextMeshPro
 
+
+// Данный скрипт нужен для появления инфы о локации при клике на неё
+
 public class ObjectNameDisplay : MonoBehaviour
 {
     public Canvas worldCanvas;
